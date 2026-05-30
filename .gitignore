@@ -1,0 +1,7 @@
+node_modules
+.env
+*.log
+.DS_Store
+
+# Dead file-based prototype data — app now uses PostgreSQL
+data/

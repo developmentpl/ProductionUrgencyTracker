@@ -1,0 +1,22 @@
+{
+  "name": "production-urgency-tracker",
+  "version": "1.0.0",
+  "description": "Urgent Work Order Dashboard for Shop Floor TV — mounted at /urgency/ on operation.yotser.in",
+  "main": "server.js",
+  "scripts": {
+    "start": "node local.js",
+    "dev": "nodemon local.js",
+    "init-db": "node scripts/init-db.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.18.2",
+    "pg": "^8.11.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

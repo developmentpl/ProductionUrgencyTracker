@@ -1,0 +1,68 @@
+====================================================
+  PRODUCTION URGENCY TRACKER — SETUP & RUN
+====================================================
+Sub-app of the Operations Portal (operation.yotser.in).
+Exports an Express Router, mounted at /urgency/.
+Data lives in PostgreSQL (NOT in a JSON file).
+
+REQUIREMENTS
+  - Node.js v20 or higher
+  - PostgreSQL running locally
+
+----------------------------------------------------
+  LOCAL DEVELOPMENT (on your Mac)
+----------------------------------------------------
+STEP 1 — Create the local database
+    createdb production_urgency_tracker
+
+STEP 2 — Set up environment
+    cp .env.example .env
+    # Edit .env with your local Postgres credentials.
+    # Keep PORT for local dev only.
+
+STEP 3 — Install dependencies (first time only)
+    npm install
+
+STEP 4 — Create tables + seed sample data
+    npm run init-db
+
+STEP 5 — Start the server (local-dev wrapper)
+    npm start
+    # or:  npm run dev   (auto-reload via nodemon)
+
+STEP 6 — Open in a browser / TV
+    Dashboard: http://localhost:3001/urgency/
+    Admin:     http://localhost:3001/urgency/admin
+    Health:    http://localhost:3001/urgency/api/health
+
+----------------------------------------------------
+  ADDING AN URGENT ORDER
+----------------------------------------------------
+Use the Admin panel (/urgency/admin), or POST directly:
+
+POST http://localhost:3001/urgency/api/urgent-orders
+Content-Type: application/json
+
+  {
+    "wo_number": "WO-275",
+    "material":  "Safety Signage",
+    "customer":  "Bosch India",
+    "priority":  "Critical",
+    "deadline":  "2026-05-31T16:00:00Z",
+    "remarks":   "Client on site"
+  }
+
+The dashboard auto-refreshes every 30 seconds.
+
+----------------------------------------------------
+  PRODUCTION (VPS)
+----------------------------------------------------
+Deployed as a sub-router inside the 5s-tracker process.
+Do NOT run `npm start` / app.listen() on the VPS — the
+router is mounted by /var/www/5s-tracker/server.js and
+served on port 3010 via PM2. The production .env must
+contain DATABASE_URL only (no PORT line).
+
+See OPERATIONS_PORTAL_NEW_APP_GUIDE for the full
+deployment procedure.
+====================================================

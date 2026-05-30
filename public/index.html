@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Urgent Orders — Shop Floor TV</title>
+  <style>
+    /* ── Foundations ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --brand-navy:    #1e3a5f;
+      --page-bg:       #f0f2f5;
+      --surface:       #ffffff;
+      --surface-alt:   #f8fafc;
+      --border:        #e2e8f0;
+      --border-subtle: #f1f5f9;
+      --text:          #1a1a1a;
+      --text-muted:    #475569;
+      --text-faint:    #94a3b8;
+      --danger:        #dc2626;
+      --warn:          #d97706;
+      --success:       #16a34a;
+
+      /* TV sizing — everything larger for 32" from 3m */
+      --tv-body:       17px;
+      --tv-sm:         15px;
+      --tv-xs:         13px;
+      --tv-hdr:        22px;
+      --tv-stat:       38px;
+      --tv-wo:         19px;
+      --tv-timer:      22px;
+      --tv-th:         13px;
+      --tv-cell-pad:   14px 16px;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--page-bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: var(--tv-body);
+      overflow: hidden;
+    }
+
+    /* ── Shell ── */
+    .shell {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--brand-navy);
+      color: #fff;
+      height: 68px;
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    header h1 {
+      font-size: var(--tv-hdr);
+      font-weight: 700;
+      letter-spacing: .02em;
+      color: #fff;
+    }
+
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: var(--tv-xs);
+      font-weight: 700;
+      letter-spacing: .08em;
+      color: #86efac;
+    }
+
+    .live-dot {
+      width: 9px;
+      height: 9px;
+      background: #4ade80;
+      border-radius: 50%;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .stat-tile {
+      background: rgba(255,255,255,.1);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 8px;
+      padding: 8px 20px;
+      text-align: center;
+      min-width: 90px;
+    }
+
+    .stat-tile .val {
+      font-size: var(--tv-stat);
+      font-weight: 800;
+      line-height: 1;
+      display: block;
+    }
+
+    .stat-tile .lbl {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: rgba(255,255,255,.6);
+      margin-top: 2px;
+      display: block;
+    }
+
+    .stat-tile.t-critical .val { color: #fca5a5; }
+    .stat-tile.t-high     .val { color: #fdba74; }
+    .stat-tile.t-total    .val { color: #fff; }
+
+    .clock-box {
+      font-size: 28px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: rgba(255,255,255,.8);
+      letter-spacing: .04em;
+      min-width: 120px;
+      text-align: right;
+    }
+
+    /* ── Main ── */
+    main {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: 16px 24px 10px;
+      gap: 12px;
+    }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 18px;
+    }
+
+    .toolbar-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--brand-navy);
+    }
+
+    .sort-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: 12px;
+    }
+
+    .sort-label {
+      font-size: var(--tv-xs);
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .sort-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface-alt);
+      color: var(--text-muted);
+      font-size: var(--tv-sm);
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+    }
+
+    .sort-btn:hover  { background: #e8f0fe; color: #1d4ed8; border-color: #3b82f6; }
+    .sort-btn.active { background: #1e3a5f; color: #fff; border-color: #1e3a5f; }
+
+    .toolbar-chips {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .chip {
+      padding: 5px 12px;
+      border-radius: 12px;
+      font-size: var(--tv-xs);
+      font-weight: 700;
+    }
+
+    .chip-total    { background: #dbeafe; color: #1d4ed8; }
+    .chip-critical { background: #fee2e2; color: #991b1b; }
+    .chip-high     { background: #fef3c7; color: #92400e; }
+    .chip-overdue  { background: #fecdd3; color: #9f1239; }
+
+    .refresh-time {
+      font-size: 12px;
+      color: var(--text-faint);
+    }
+
+    /* ── Table section ── */
+    .table-section {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Scrollbar always visible */
+    .table-scroll {
+      overflow-y: scroll;
+      overflow-x: auto;
+      flex: 1;
+      scrollbar-width: thin;
+      scrollbar-color: #94a3b8 var(--surface-alt);
+    }
+
+    .table-scroll::-webkit-scrollbar        { width: 12px; }
+    .table-scroll::-webkit-scrollbar-track  { background: var(--surface-alt); border-left: 1px solid var(--border); }
+    .table-scroll::-webkit-scrollbar-thumb  { background: #94a3b8; border-radius: 6px; border: 3px solid var(--surface-alt); }
+    .table-scroll::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+    /* ── Table ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1000px;
+    }
+
+    thead {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    thead th {
+      background: var(--surface-alt);
+      border-bottom: 2px solid var(--border);
+      padding: 12px 16px;
+      text-align: left;
+      font-size: var(--tv-th);
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border-subtle);
+      transition: background .1s;
+    }
+
+    tbody tr:hover          { background: var(--surface-alt); }
+    tbody tr.row-overdue    { background: #fef2f2; }
+    tbody tr.row-overdue:hover { background: #fee2e2; }
+
+    tbody td {
+      padding: var(--tv-cell-pad);
+      vertical-align: middle;
+      font-size: var(--tv-body);
+    }
+
+    /* Row accent bar */
+    tbody tr.pri-is-critical td:first-child { border-left: 4px solid var(--danger); }
+    tbody tr.pri-is-high     td:first-child { border-left: 4px solid var(--warn); }
+    tbody tr.pri-is-medium   td:first-child { border-left: 4px solid #eab308; }
+    tbody tr.pri-is-low      td:first-child { border-left: 4px solid var(--success); }
+
+    td.col-no {
+      text-align: center;
+      color: var(--text-faint);
+      font-size: var(--tv-xs);
+      font-weight: 700;
+      width: 48px;
+    }
+
+    td.wo-id {
+      font-size: var(--tv-wo);
+      font-weight: 800;
+      color: var(--brand-navy);
+      font-family: 'Courier New', monospace;
+      letter-spacing: .03em;
+      width: 120px;
+    }
+
+    td.material {
+      font-weight: 600;
+      color: var(--text);
+      max-width: 280px;
+    }
+
+    td.customer {
+      color: var(--text-muted);
+      font-weight: 500;
+      max-width: 200px;
+    }
+
+    /* Priority — text color only per style guide */
+    .pri-text {
+      font-weight: 800;
+      font-size: var(--tv-body);
+      letter-spacing: .01em;
+    }
+
+    .pri-critical { color: var(--danger); }
+    .pri-high     { color: var(--danger); }
+    .pri-medium   { color: var(--warn); }
+    .pri-low      { color: var(--success); }
+
+    td.submitted-td {
+      color: var(--text-muted);
+      font-size: var(--tv-sm);
+    }
+
+    /* Countdown — the most visible element on the TV */
+    .countdown {
+      font-family: 'Courier New', monospace;
+      font-size: var(--tv-timer);
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: .04em;
+      display: inline-block;
+      min-width: 160px;
+    }
+
+    .cnt-overdue  { color: var(--danger); }
+    .cnt-critical { color: var(--danger); }
+    .cnt-warning  { color: var(--warn); }
+    .cnt-ok       { color: var(--success); }
+
+    td.remarks-td {
+      color: var(--text-faint);
+      font-size: var(--tv-sm);
+      font-style: italic;
+      max-width: 220px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 24px;
+      gap: 10px;
+      color: var(--text-faint);
+    }
+
+    .empty-state .icon { font-size: 3rem; }
+    .empty-state p     { font-size: 18px; }
+
+    /* ── Footer ── */
+    footer {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 24px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 13px;
+      color: var(--text-faint);
+    }
+
+    footer strong { color: var(--text-muted); }
+
+    .admin-link {
+      color: #3b82f6;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .admin-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── Header ── -->
+  <header>
+    <div class="header-left">
+      <h1>🚨 Urgent Orders Dashboard</h1>
+      <div class="live-badge">
+        <div class="live-dot"></div>
+        LIVE
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="stat-tile t-critical">
+        <span class="val" id="stat-critical">0</span>
+        <span class="lbl">Critical</span>
+      </div>
+      <div class="stat-tile t-high">
+        <span class="val" id="stat-high">0</span>
+        <span class="lbl">High</span>
+      </div>
+      <div class="stat-tile t-total">
+        <span class="val" id="stat-total">0</span>
+        <span class="lbl">Total</span>
+      </div>
+      <div class="clock-box" id="clock">--:--:--</div>
+    </div>
+  </header>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <span class="toolbar-title">📋 Active Urgent Orders</span>
+
+      <div class="sort-group">
+        <span class="sort-label">Sort:</span>
+        <button class="sort-btn" id="btn-sort-wo"    onclick="setSort('wo')">WO No. <span id="arrow-wo">↕</span></button>
+        <button class="sort-btn" id="btn-sort-pri"   onclick="setSort('priority')">Priority <span id="arrow-pri">↕</span></button>
+        <button class="sort-btn" id="btn-sort-timer" onclick="setSort('deadline')">Time Left <span id="arrow-timer">↕</span></button>
+      </div>
+
+      <div class="toolbar-chips">
+        <span class="chip chip-total"    id="chip-total">Total: 0</span>
+        <span class="chip chip-critical" id="chip-critical">Critical: 0</span>
+        <span class="chip chip-high"     id="chip-high">High: 0</span>
+        <span class="chip chip-overdue"  id="chip-overdue">Overdue: 0</span>
+        <span class="refresh-time"       id="last-refresh">—</span>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-section">
+      <div class="table-scroll" id="table-scroll">
+        <div id="table-container"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ── Footer ── -->
+  <footer>
+    <span>Production Stage Tracker — <strong>operation.yotser.in</strong></span>
+    <span>Auto-refreshes every 30s &nbsp;·&nbsp; Hover to pause scroll</span>
+    <span>
+      <a href="/urgency/admin" class="admin-link">⚙️ Admin Panel</a>
+      &nbsp;&nbsp;
+      <span id="footer-time">—</span>
+    </span>
+  </footer>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════
+const API           = '/urgency';
+const API_URL       = `${API}/api/urgent-orders`;
+const REFRESH_MS    = 30_000;
+const SCROLL_PX_SEC = 45;
+
+const PRI_RANK = { critical: 0, high: 1, medium: 2, low: 3 };
+
+// ═══════════════════════════════════════
+//  SORT STATE
+// ═══════════════════════════════════════
+let sortKey = 'priority';
+let sortDir = 1;
+
+function setSort(key) {
+  if (sortKey === key) {
+    sortDir = -sortDir;
+  } else {
+    sortKey = key;
+    sortDir = 1;
+  }
+  updateSortButtons();
+  renderTable(orders);
+}
+
+function updateSortButtons() {
+  [['wo','wo'], ['pri','priority'], ['timer','deadline']].forEach(([btnSuffix, dataKey]) => {
+    const btn = document.getElementById(`btn-sort-${btnSuffix}`);
+    const arr = document.getElementById(`arrow-${btnSuffix}`);
+    if (!btn || !arr) return;
+    if (sortKey === dataKey) {
+      btn.classList.add('active');
+      arr.textContent = sortDir === 1 ? ' ↑' : ' ↓';
+    } else {
+      btn.classList.remove('active');
+      arr.textContent = ' ↕';
+    }
+  });
+}
+
+function sortOrders(list) {
+  return [...list].sort((a, b) => {
+    if (sortKey === 'priority') {
+      const pa = PRI_RANK[(a.priority||'').toLowerCase()] ?? 9;
+      const pb = PRI_RANK[(b.priority||'').toLowerCase()] ?? 9;
+      return sortDir * (pa - pb);
+    }
+    if (sortKey === 'wo') {
+      const na = parseInt((a.wo_number||'').replace(/\D/g,''), 10) || 0;
+      const nb = parseInt((b.wo_number||'').replace(/\D/g,''), 10) || 0;
+      return sortDir * (na - nb);
+    }
+    if (sortKey === 'deadline') {
+      return sortDir * (new Date(a.deadline) - new Date(b.deadline));
+    }
+    return 0;
+  });
+}
+
+// ═══════════════════════════════════════
+//  CLOCK
+// ═══════════════════════════════════════
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('en-IN', { hour12: false });
+  document.getElementById('footer-time').textContent =
+    now.toLocaleString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true
+    });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ═══════════════════════════════════════
+//  COUNTDOWN
+// ═══════════════════════════════════════
+function getCountdown(deadlineStr) {
+  const diff = new Date(deadlineStr) - Date.now();
+
+  if (diff <= 0) {
+    const over   = Math.abs(Math.floor(diff / 1000));
+    const oh     = Math.floor(over / 3600);
+    const om     = Math.floor((over % 3600) / 60);
+    return { text: `+${oh}h ${om}m overdue`, cls: 'cnt-overdue', isOverdue: true };
+  }
+
+  const total = Math.floor(diff / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const text = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+
+  let cls = 'cnt-ok';
+  if (diff < 1 * 3600 * 1000)  cls = 'cnt-critical';
+  else if (diff < 4 * 3600 * 1000) cls = 'cnt-warning';
+
+  return { text, cls, isOverdue: false };
+}
+
+// ═══════════════════════════════════════
+//  DATA & STATE
+// ═══════════════════════════════════════
+let orders = [];
+let scrollRAF = null;
+
+// ═══════════════════════════════════════
+//  RENDER TABLE
+// ═══════════════════════════════════════
+function renderTable(data) {
+  const sorted    = sortOrders(data);
+  const container = document.getElementById('table-container');
+
+  // Cancel previous scroll loop
+  if (scrollRAF) { cancelAnimationFrame(scrollRAF); scrollRAF = null; }
+
+  if (!sorted.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">✅</div>
+        <p>No urgent orders — all clear!</p>
+      </div>`;
+    return;
+  }
+
+  const rows = sorted.map((o, i) => {
+    const priKey = (o.priority || 'low').toLowerCase();
+    const { text, cls, isOverdue } = getCountdown(o.deadline);
+    const submitted = new Date(o.submitted_at).toLocaleString('en-IN', {
+      day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', hour12: true
+    });
+    const trCls = [`pri-is-${priKey}`, isOverdue ? 'row-overdue' : ''].filter(Boolean).join(' ');
+
+    return `
+      <tr class="${trCls}">
+        <td class="col-no">${i + 1}</td>
+        <td class="wo-id">${esc(o.wo_number)}</td>
+        <td class="material">${esc(o.material || '—')}</td>
+        <td class="customer">${esc(o.customer)}</td>
+        <td><span class="pri-text pri-${priKey}">${esc(o.priority)}</span></td>
+        <td class="submitted-td">${submitted}</td>
+        <td>
+          <span class="countdown ${cls}" data-deadline="${o.deadline}">${isOverdue ? '⚠ ' : ''}${text}</span>
+        </td>
+        <td class="remarks-td" title="${esc(o.remarks || '')}">${esc(o.remarks || '—')}</td>
+      </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th style="width:48px;text-align:center">#</th>
+          <th style="width:120px">WO No.</th>
+          <th style="width:260px">Work Order Name</th>
+          <th style="width:200px">Customer</th>
+          <th style="width:110px">Priority</th>
+          <th style="width:140px">Submitted</th>
+          <th style="width:180px">⏱ Time Left</th>
+          <th>Remarks</th>
+        </tr>
+      </thead>
+      <tbody id="rows-body">
+        ${rows}
+      </tbody>
+    </table>`;
+
+  startAutoScroll(sorted.length);
+}
+
+// ═══════════════════════════════════════
+//  AUTO-SCROLL (JS-driven, not CSS)
+// ═══════════════════════════════════════
+function startAutoScroll(rowCount) {
+  const scrollEl = document.getElementById('table-scroll');
+  const tbody    = document.getElementById('rows-body');
+  if (!scrollEl || !tbody) return;
+
+  const rowsH  = tbody.scrollHeight;
+  const viewH  = scrollEl.clientHeight;
+
+  if (rowsH <= viewH) return;   // no scroll needed
+
+  // Duplicate rows for seamless loop
+  tbody.innerHTML += tbody.innerHTML;
+
+  let pos      = 0;
+  let paused   = false;
+  let lastTime = null;
+
+  scrollEl.addEventListener('mouseenter', () => { paused = true; });
+  scrollEl.addEventListener('mouseleave', () => { paused = false; });
+
+  function frame(ts) {
+    if (lastTime !== null && !paused) {
+      const dt = (ts - lastTime) / 1000;
+      pos += SCROLL_PX_SEC * dt;
+      if (pos >= rowsH) pos -= rowsH;
+      scrollEl.scrollTop = pos;
+    }
+    lastTime = ts;
+    scrollRAF = requestAnimationFrame(frame);
+  }
+
+  scrollRAF = requestAnimationFrame(frame);
+}
+
+// ═══════════════════════════════════════
+//  STATS
+// ═══════════════════════════════════════
+function updateStats(data) {
+  const critical = data.filter(o => (o.priority||'').toLowerCase() === 'critical').length;
+  const high     = data.filter(o => (o.priority||'').toLowerCase() === 'high').length;
+  const overdue  = data.filter(o => new Date(o.deadline) < Date.now()).length;
+
+  document.getElementById('stat-critical').textContent = critical;
+  document.getElementById('stat-high').textContent     = high;
+  document.getElementById('stat-total').textContent    = data.length;
+  document.getElementById('chip-total').textContent    = `Total: ${data.length}`;
+  document.getElementById('chip-critical').textContent = `Critical: ${critical}`;
+  document.getElementById('chip-high').textContent     = `High: ${high}`;
+  document.getElementById('chip-overdue').textContent  = `Overdue: ${overdue}`;
+}
+
+// ═══════════════════════════════════════
+//  LIVE COUNTDOWN TICK
+// ═══════════════════════════════════════
+function tickCountdowns() {
+  document.querySelectorAll('.countdown[data-deadline]').forEach(el => {
+    const { text, cls, isOverdue } = getCountdown(el.dataset.deadline);
+    el.textContent = (isOverdue ? '⚠ ' : '') + text;
+    el.className   = `countdown ${cls}`;
+  });
+}
+setInterval(tickCountdowns, 1000);
+
+// ═══════════════════════════════════════
+//  FETCH & RENDER
+// ═══════════════════════════════════════
+async function fetchAndRender() {
+  try {
+    const res  = await fetch(API_URL);
+    const json = await res.json();
+    orders = json.data || [];
+    updateStats(orders);
+    renderTable(orders);
+    document.getElementById('last-refresh').textContent =
+      'Refreshed ' + new Date().toLocaleTimeString('en-IN', { hour12: true });
+  } catch (err) {
+    console.error('Fetch failed:', err);
+    document.getElementById('table-container').innerHTML =
+      `<div class="empty-state"><div class="icon">⚠️</div><p>Cannot connect to server. Retrying…</p></div>`;
+  }
+}
+
+// ═══════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, m =>
+    ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m])
+  );
+}
+
+// ═══════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════
+updateSortButtons();
+fetchAndRender();
+setInterval(fetchAndRender, REFRESH_MS);
+</script>
+</body>
+</html>

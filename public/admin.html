@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — Urgent Orders</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --brand-navy:    #1e3a5f;
+      --primary:       #3b82f6;
+      --primary-hover: #2563eb;
+      --page-bg:       #f0f2f5;
+      --surface:       #ffffff;
+      --surface-alt:   #f8fafc;
+      --border:        #e2e8f0;
+      --text:          #222222;
+      --text-muted:    #64748b;
+      --text-faint:    #94a3b8;
+      --danger:        #dc2626;
+      --danger-soft:   #fee2e2;
+      --danger-text:   #991b1b;
+      --warn-strong:   #d97706;
+      --warn-soft:     #fef3c7;
+      --warn-text:     #92400e;
+      --success:       #16a34a;
+    }
+
+    body {
+      background: var(--page-bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--brand-navy);
+      color: #fff;
+      padding: 0 28px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    header h1 { font-size: 18px; font-weight: 700; }
+
+    .header-actions { display: flex; align-items: center; gap: 12px; }
+
+    .btn-tv {
+      background: rgba(255,255,255,.15);
+      border: 1px solid rgba(255,255,255,.3);
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-tv:hover { background: rgba(255,255,255,.25); }
+
+    .admin-badge {
+      background: rgba(255,255,255,.2);
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .06em;
+      color: #bfdbfe;
+    }
+
+    .logout-btn {
+      background: none;
+      border: 1px solid rgba(255,255,255,.3);
+      color: rgba(255,255,255,.8);
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .logout-btn:hover { background: rgba(255,255,255,.1); }
+
+    /* ── LOGIN SCREEN ── */
+    #login-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: calc(100vh - 56px);
+    }
+
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 40px 44px;
+      width: 380px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.08);
+      text-align: center;
+    }
+
+    .login-card .lock-icon { font-size: 3rem; margin-bottom: 16px; }
+    .login-card h2 { font-size: 20px; font-weight: 700; color: var(--brand-navy); margin-bottom: 6px; }
+    .login-card p  { color: var(--text-muted); font-size: 13px; margin-bottom: 24px; }
+
+    .form-group { text-align: left; margin-bottom: 16px; }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #475569;
+      margin-bottom: 4px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      color: var(--text);
+      background: #fff;
+      transition: border-color .15s;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus { border-color: var(--primary); }
+
+    .form-group textarea { resize: vertical; min-height: 60px; }
+
+    .btn-primary {
+      width: 100%;
+      padding: 10px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+
+    .btn-primary:hover { background: var(--primary-hover); }
+
+    .login-error {
+      color: var(--danger);
+      font-size: 12px;
+      margin-top: 10px;
+      min-height: 18px;
+    }
+
+    /* ── ADMIN PANEL ── */
+    #admin-panel { display: none; }
+
+    .page-body {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 24px;
+    }
+
+    /* Summary row */
+    .summary-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .sum-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      text-align: center;
+    }
+
+    .sum-card .val {
+      font-size: 32px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .sum-card .lbl {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .sum-card.c-total  .val { color: var(--brand-navy); }
+    .sum-card.c-crit   .val { color: var(--danger); }
+    .sum-card.c-high   .val { color: var(--warn-strong); }
+    .sum-card.c-overdue .val { color: #7f1d1d; }
+
+    /* Section card */
+    .section-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .section-header h3 {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--brand-navy);
+    }
+
+    .btn-add {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-add:hover { background: var(--primary-hover); }
+
+    /* Table */
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 900px;
+    }
+
+    thead th {
+      background: var(--surface-alt);
+      padding: 10px 12px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    tbody tr { border-bottom: 1px solid #f1f5f9; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface-alt); }
+
+    tbody td {
+      padding: 10px 12px;
+      font-size: 13px;
+      vertical-align: middle;
+    }
+
+    .wo-id-cell {
+      font-weight: 700;
+      color: var(--brand-navy);
+      font-family: 'Courier New', monospace;
+    }
+
+    .pri-text { font-weight: 700; font-size: 12px; }
+    .pri-critical, .pri-high { color: var(--danger); }
+    .pri-medium               { color: var(--warn-strong); }
+    .pri-low                  { color: var(--success); }
+
+    .deadline-cell { font-size: 12px; color: var(--text-muted); }
+    .deadline-cell.is-overdue { color: var(--danger); font-weight: 600; }
+
+    .remarks-cell {
+      max-width: 180px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-faint);
+      font-style: italic;
+      font-size: 12px;
+    }
+
+    .actions-cell { display: flex; gap: 6px; white-space: nowrap; }
+
+    .btn-edit {
+      background: #eff6ff; color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      padding: 5px 10px; border-radius: 6px;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+
+    .btn-edit:hover { background: #dbeafe; }
+
+    .btn-delete {
+      background: var(--danger-soft); color: var(--danger-text);
+      border: 1px solid #fecaca;
+      padding: 5px 10px; border-radius: 6px;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+
+    .btn-delete:hover { background: #fecaca; }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.45);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border-radius: 12px;
+      width: 520px;
+      max-width: 95vw;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,.2);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-header h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--brand-navy);
+    }
+
+    .modal-close {
+      background: none; border: none;
+      font-size: 20px; cursor: pointer;
+      color: var(--text-faint); line-height: 1;
+      padding: 2px 6px; border-radius: 4px;
+    }
+
+    .modal-close:hover { background: var(--surface-alt); color: var(--text); }
+
+    .modal-body { padding: 20px; }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0 16px;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .btn-cancel {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 8px 18px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-cancel:hover { background: var(--border); }
+
+    .btn-save {
+      background: var(--primary);
+      border: none;
+      color: #fff;
+      padding: 8px 20px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn-save:hover { background: var(--primary-hover); }
+
+    .required { color: var(--danger); }
+    .optional  { color: var(--text-faint); font-weight: 400; font-size: 11px; }
+
+    /* toast */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #1e293b;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity .2s, transform .2s;
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.ok   { border-left: 4px solid #22c55e; }
+    #toast.err  { border-left: 4px solid var(--danger); }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <h1>⚙️ Urgent Orders — Admin Panel</h1>
+  <div class="header-actions">
+    <a href="/urgency/" target="_blank" class="btn-tv">📺 Open TV Dashboard</a>
+    <span class="admin-badge" id="admin-user-badge" style="display:none">ADMIN</span>
+    <button class="logout-btn" id="logout-btn" style="display:none" onclick="logout()">Sign out</button>
+  </div>
+</header>
+
+<!-- ── LOGIN SCREEN ── -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="lock-icon">🔐</div>
+    <h2>Admin Login</h2>
+    <p>Enter the admin password to manage urgent orders</p>
+
+    <div class="form-group">
+      <label>Password <span class="required">*</span></label>
+      <input type="password" id="login-password" placeholder="Enter admin password"
+             onkeydown="if(event.key==='Enter') doLogin()" />
+    </div>
+
+    <button class="btn-primary" onclick="doLogin()">Sign In</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- ── ADMIN PANEL ── -->
+<div id="admin-panel">
+  <div class="page-body">
+
+    <!-- Summary cards -->
+    <div class="summary-row">
+      <div class="sum-card c-total">
+        <div class="val" id="s-total">0</div>
+        <div class="lbl">Total Orders</div>
+      </div>
+      <div class="sum-card c-crit">
+        <div class="val" id="s-critical">0</div>
+        <div class="lbl">Critical</div>
+      </div>
+      <div class="sum-card c-high">
+        <div class="val" id="s-high">0</div>
+        <div class="lbl">High Priority</div>
+      </div>
+      <div class="sum-card c-overdue">
+        <div class="val" id="s-overdue">0</div>
+        <div class="lbl">Overdue</div>
+      </div>
+    </div>
+
+    <!-- Orders table -->
+    <div class="section-card">
+      <div class="section-header">
+        <h3>📋 All Urgent Orders</h3>
+        <button class="btn-add" onclick="openModal()">＋ Add New Order</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>WO No.</th>
+              <th>Work Order Name</th>
+              <th>Customer</th>
+              <th>Priority</th>
+              <th>Deadline</th>
+              <th>Submitted</th>
+              <th>Remarks</th>
+              <th style="text-align:center;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="orders-tbody">
+            <tr><td colspan="9" style="text-align:center;padding:24px;color:#94a3b8;">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── ADD / EDIT MODAL ── -->
+<div class="modal-overlay" id="order-modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">Add New Urgent Order</h3>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="f-id" />
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>WO Number <span class="required">*</span></label>
+          <input type="text" id="f-wo" placeholder="e.g. WO-275" />
+        </div>
+        <div class="form-group">
+          <label>Priority <span class="required">*</span></label>
+          <select id="f-priority">
+            <option value="Critical">🔴 Critical</option>
+            <option value="High">🟠 High</option>
+            <option value="Medium" selected>🟡 Medium</option>
+            <option value="Low">🟢 Low</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Work Order Name <span class="required">*</span></label>
+        <input type="text" id="f-material" placeholder="e.g. Crane Sticker WLL" />
+      </div>
+
+      <div class="form-group">
+        <label>Customer / Company Name <span class="required">*</span></label>
+        <input type="text" id="f-customer" placeholder="e.g. Jabil India Pvt Ltd" />
+      </div>
+
+      <div class="form-group">
+        <label>Deadline (Date &amp; Time) <span class="required">*</span></label>
+        <input type="datetime-local" id="f-deadline" />
+      </div>
+
+      <div class="form-group">
+        <label>Remarks <span class="optional">(optional)</span></label>
+        <textarea id="f-remarks" placeholder="e.g. Client waiting at gate, same-day dispatch needed"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveOrder()">Save Order</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+//  CONFIG
+// ══════════════════════════════════════════
+const MOUNT     = '/urgency';
+const API       = `${MOUNT}/api/urgent-orders`;
+const ADMIN_PWD = 'urgent@2024';   // Change this to your preferred password
+
+// ══════════════════════════════════════════
+//  AUTH
+// ══════════════════════════════════════════
+function checkLogin() {
+  const logged = sessionStorage.getItem('admin_auth') === 'yes';
+  if (logged) showAdminPanel();
+}
+
+function doLogin() {
+  const pwd = document.getElementById('login-password').value.trim();
+  if (pwd === ADMIN_PWD) {
+    sessionStorage.setItem('admin_auth', 'yes');
+    document.getElementById('login-error').textContent = '';
+    showAdminPanel();
+  } else {
+    document.getElementById('login-error').textContent = 'Incorrect password. Please try again.';
+    document.getElementById('login-password').value = '';
+    document.getElementById('login-password').focus();
+  }
+}
+
+function showAdminPanel() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('admin-panel').style.display  = 'block';
+  document.getElementById('admin-user-badge').style.display = 'inline-block';
+  document.getElementById('logout-btn').style.display = 'inline-block';
+  loadOrders();
+}
+
+function logout() {
+  sessionStorage.removeItem('admin_auth');
+  location.reload();
+}
+
+// ══════════════════════════════════════════
+//  DATA
+// ══════════════════════════════════════════
+let orders = [];
+
+async function loadOrders() {
+  try {
+    const res = await fetch(API);
+    const json = await res.json();
+    orders = (json.data || []).sort((a,b) => {
+      const p = { critical:0, high:1, medium:2, low:3 };
+      return (p[(a.priority||'').toLowerCase()]??9) - (p[(b.priority||'').toLowerCase()]??9);
+    });
+    renderTable();
+    updateStats();
+  } catch(e) {
+    toast('Failed to load orders', 'err');
+  }
+}
+
+// ══════════════════════════════════════════
+//  RENDER TABLE
+// ══════════════════════════════════════════
+function renderTable() {
+  const tbody = document.getElementById('orders-tbody');
+  if (!orders.length) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:32px;color:#94a3b8;">No urgent orders yet. Click "+ Add New Order" to get started.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = orders.map((o, i) => {
+    const priKey = (o.priority||'low').toLowerCase();
+    const dl = new Date(o.deadline);
+    const overdue = dl < Date.now();
+    const dlStr = dl.toLocaleString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:true });
+    const subStr = new Date(o.submitted_at).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', hour12:true });
+
+    return `
+      <tr>
+        <td style="color:#94a3b8;font-size:11px">${i+1}</td>
+        <td class="wo-id-cell">${esc(o.wo_number)}</td>
+        <td>${esc(o.material||'—')}</td>
+        <td style="color:#64748b">${esc(o.customer)}</td>
+        <td><span class="pri-text pri-${priKey}">${esc(o.priority)}</span></td>
+        <td class="deadline-cell ${overdue?'is-overdue':''}">${overdue?'⚠ ':''}${dlStr}</td>
+        <td style="font-size:12px;color:#64748b">${subStr}</td>
+        <td class="remarks-cell" title="${esc(o.remarks||'')}">${esc(o.remarks||'—')}</td>
+        <td>
+          <div class="actions-cell">
+            <button class="btn-edit" onclick="openModal(${o.id})">✏️ Edit</button>
+            <button class="btn-delete" onclick="deleteOrder(${o.id}, '${esc(o.wo_number)}')">🗑️ Delete</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+//  STATS
+// ══════════════════════════════════════════
+function updateStats() {
+  document.getElementById('s-total').textContent    = orders.length;
+  document.getElementById('s-critical').textContent = orders.filter(o=>(o.priority||'').toLowerCase()==='critical').length;
+  document.getElementById('s-high').textContent     = orders.filter(o=>(o.priority||'').toLowerCase()==='high').length;
+  document.getElementById('s-overdue').textContent  = orders.filter(o=>new Date(o.deadline)<Date.now()).length;
+}
+
+// ══════════════════════════════════════════
+//  MODAL — ADD / EDIT
+// ══════════════════════════════════════════
+function openModal(id) {
+  const o = id ? orders.find(x => x.id == id) : null;
+
+  document.getElementById('modal-title').textContent = o ? `Edit Order — ${o.wo_number}` : 'Add New Urgent Order';
+  document.getElementById('f-id').value       = o ? o.id : '';
+  document.getElementById('f-wo').value       = o ? o.wo_number : '';
+  document.getElementById('f-material').value = o ? o.material  : '';
+  document.getElementById('f-customer').value = o ? o.customer  : '';
+  document.getElementById('f-priority').value = o ? o.priority  : 'Medium';
+  document.getElementById('f-remarks').value  = o ? o.remarks   : '';
+
+  // Set deadline — convert ISO to datetime-local format
+  if (o && o.deadline) {
+    const d = new Date(o.deadline);
+    const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+      .toISOString().slice(0, 16);
+    document.getElementById('f-deadline').value = local;
+  } else {
+    // Default: 8 hours from now
+    const def = new Date(Date.now() + 8 * 60 * 60 * 1000);
+    const local = new Date(def.getTime() - def.getTimezoneOffset() * 60000)
+      .toISOString().slice(0, 16);
+    document.getElementById('f-deadline').value = local;
+  }
+
+  document.getElementById('order-modal').classList.add('open');
+  setTimeout(() => document.getElementById('f-wo').focus(), 50);
+}
+
+function closeModal() {
+  document.getElementById('order-modal').classList.remove('open');
+}
+
+async function saveOrder() {
+  const id       = document.getElementById('f-id').value;
+  const wo       = document.getElementById('f-wo').value.trim();
+  const material = document.getElementById('f-material').value.trim();
+  const customer = document.getElementById('f-customer').value.trim();
+  const priority = document.getElementById('f-priority').value;
+  const deadline = document.getElementById('f-deadline').value;
+  const remarks  = document.getElementById('f-remarks').value.trim();
+
+  if (!wo || !customer || !deadline || !material) {
+    toast('WO Number, Material, Customer and Deadline are required.', 'err');
+    return;
+  }
+
+  const payload = { wo_number: wo, material, customer, priority, deadline: new Date(deadline).toISOString(), remarks };
+
+  try {
+    const res = await fetch(id ? `${API}/${id}` : API, {
+      method: id ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Save failed');
+    closeModal();
+    toast(id ? '✅ Order updated!' : '✅ Order added!', 'ok');
+    loadOrders();
+  } catch(e) {
+    toast('Error: ' + e.message, 'err');
+  }
+}
+
+// ══════════════════════════════════════════
+//  DELETE
+// ══════════════════════════════════════════
+async function deleteOrder(id, woNum) {
+  if (!confirm(`Delete urgent order ${woNum}?\n\nThis will remove it from the TV dashboard immediately.`)) return;
+  try {
+    const res  = await fetch(`${API}/${id}`, { method: 'DELETE' });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+    toast(`🗑️ ${woNum} removed`, 'ok');
+    loadOrders();
+  } catch(e) {
+    toast('Delete failed: ' + e.message, 'err');
+  }
+}
+
+// ══════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════
+let toastTimer;
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className   = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = type; }, 3000);
+}
+
+// ══════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, m =>
+    ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m])
+  );
+}
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+checkLogin();
+</script>
+</body>
+</html>
