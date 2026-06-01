@@ -1,8 +1,30 @@
 const express = require('express');
 const path    = require('path');
+const fs      = require('fs');
+const dotenv  = require('dotenv');
+const { Pool }= require('pg');
 const db      = require('./db');
 
 const router = express.Router();
+
+// ── Print-Order Details DB pool (read-only, for WO typeahead) ─────────────────
+// Derive the print_order_details URL from this app's own DATABASE_URL by
+// swapping the DB name. Both DBs use fivesuser on the same Postgres instance.
+const _localEnv = (() => {
+  const p = path.join(__dirname, '.env');
+  return fs.existsSync(p) ? dotenv.parse(fs.readFileSync(p)) : {};
+})();
+const _getEnv = (k) => (_localEnv[k] !== undefined ? _localEnv[k] : process.env[k]);
+
+let _printOrderPool = null;
+function getPrintOrderPool() {
+  if (_printOrderPool) return _printOrderPool;
+  const base = _getEnv('DATABASE_URL') || '';
+  const url  = base.replace(/\/[^/?]+(\?.*)?$/, '/print_order_details$1');
+  if (!url) return null;
+  _printOrderPool = new Pool({ connectionString: url });
+  return _printOrderPool;
+}
 
 // Body parsing
 router.use(express.json());
@@ -94,6 +116,49 @@ router.delete('/api/urgent-orders/:id', async (req, res) => {
   } catch (err) {
     console.error('[production-urgency-tracker] DELETE /api/urgent-orders/:id', err);
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// Print-Order search — WO typeahead in Add form
+// ─────────────────────────────────────────────
+router.get('/api/print-orders/search', async (req, res) => {
+  try {
+    const pool = getPrintOrderPool();
+    if (!pool) return res.json({ ok: false, items: [], message: 'Print Order DB not configured.' });
+
+    const q = (req.query.q || '').trim();
+    let rows;
+    if (q) {
+      ({ rows } = await pool.query(
+        `SELECT DISTINCT ON (wo_no)
+           wo_no, wo_name, company_name
+         FROM print_details
+         WHERE wo_no IS NOT NULL
+           AND (CAST(wo_no AS TEXT) ILIKE $1 OR wo_name ILIKE $1 OR company_name ILIKE $1)
+         ORDER BY wo_no DESC, added_time DESC NULLS LAST
+         LIMIT 60`,
+        [`%${q}%`]
+      ));
+    } else {
+      ({ rows } = await pool.query(
+        `SELECT DISTINCT ON (wo_no) wo_no, wo_name, company_name
+         FROM print_details
+         WHERE wo_no IS NOT NULL
+         ORDER BY wo_no DESC, added_time DESC NULLS LAST
+         LIMIT 60`
+      ));
+    }
+
+    const items = rows.map(r => ({
+      wo_number:     String(r.wo_no),
+      title:         r.wo_name      || '',
+      customer_name: r.company_name || '',
+    }));
+    res.json({ ok: true, items });
+  } catch (err) {
+    console.error('[production-urgency-tracker] GET /api/print-orders/search', err);
+    res.json({ ok: false, items: [], message: err.message });
   }
 });
 

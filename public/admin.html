@@ -421,6 +421,76 @@
     .required { color: var(--danger); }
     .optional  { color: var(--text-faint); font-weight: 400; font-size: 11px; }
 
+    /* ── WO typeahead ── */
+    .wo-type-wrap { position: relative; }
+
+    .wo-dropdown {
+      display: none;
+      position: absolute;
+      left: 0; right: 0;
+      top: calc(100% + 4px);
+      background: #fff;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.1);
+      max-height: 260px;
+      overflow-y: auto;
+      z-index: 300;
+    }
+    .wo-dropdown.open { display: block; }
+
+    .wo-drop-row {
+      padding: 9px 14px;
+      border-bottom: 1px solid #f1f5f9;
+      cursor: pointer;
+      transition: background .1s;
+    }
+    .wo-drop-row:last-child { border-bottom: none; }
+    .wo-drop-row:hover { background: #eef2ff; }
+
+    .wo-drop-top {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .wo-drop-id {
+      font-family: 'Courier New', monospace;
+      font-weight: 700;
+      font-size: 13px;
+      color: #3730a3;
+    }
+    .wo-drop-badge {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #f5f3ff;
+      color: #6d28d9;
+    }
+    .wo-drop-name {
+      font-size: 13px;
+      color: #1f2937;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .wo-drop-meta {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .wo-help {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 4px;
+      min-height: 14px;
+    }
+
     /* toast */
     #toast {
       position: fixed;
@@ -461,12 +531,20 @@
   <div class="login-card">
     <div class="lock-icon">🔐</div>
     <h2>Admin Login</h2>
-    <p>Enter the admin password to manage urgent orders</p>
+    <p>Enter your username and password to manage urgent orders</p>
+
+    <div class="form-group">
+      <label>Username <span class="required">*</span></label>
+      <input type="text" id="login-username" placeholder="Enter username"
+             onkeydown="if(event.key==='Enter') document.getElementById('login-password').focus()"
+             autocomplete="username" />
+    </div>
 
     <div class="form-group">
       <label>Password <span class="required">*</span></label>
-      <input type="password" id="login-password" placeholder="Enter admin password"
-             onkeydown="if(event.key==='Enter') doLogin()" />
+      <input type="password" id="login-password" placeholder="Enter password"
+             onkeydown="if(event.key==='Enter') doLogin()"
+             autocomplete="current-password" />
     </div>
 
     <button class="btn-primary" onclick="doLogin()">Sign In</button>
@@ -543,7 +621,12 @@
       <div class="form-row">
         <div class="form-group">
           <label>WO Number <span class="required">*</span></label>
-          <input type="text" id="f-wo" placeholder="e.g. WO-275" />
+          <div class="wo-type-wrap">
+            <input type="text" id="f-wo" autocomplete="off"
+                   placeholder="Type WO number, name or company…" />
+            <div class="wo-dropdown" id="wo-dropdown"></div>
+          </div>
+          <div class="wo-help" id="wo-help"></div>
         </div>
         <div class="form-group">
           <label>Priority <span class="required">*</span></label>
@@ -590,9 +673,10 @@
 // ══════════════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════════════
-const MOUNT     = '/urgency';
-const API       = `${MOUNT}/api/urgent-orders`;
-const ADMIN_PWD = 'urgent@2024';   // Change this to your preferred password
+const MOUNT      = '/urgency';
+const API        = `${MOUNT}/api/urgent-orders`;
+const ADMIN_USER = 'sadanand';   // Admin username
+const ADMIN_PWD  = '9999';       // Admin password
 
 // ══════════════════════════════════════════
 //  AUTH
@@ -603,13 +687,14 @@ function checkLogin() {
 }
 
 function doLogin() {
-  const pwd = document.getElementById('login-password').value.trim();
-  if (pwd === ADMIN_PWD) {
+  const user = document.getElementById('login-username').value.trim();
+  const pwd  = document.getElementById('login-password').value.trim();
+  if (user === ADMIN_USER && pwd === ADMIN_PWD) {
     sessionStorage.setItem('admin_auth', 'yes');
     document.getElementById('login-error').textContent = '';
     showAdminPanel();
   } else {
-    document.getElementById('login-error').textContent = 'Incorrect password. Please try again.';
+    document.getElementById('login-error').textContent = 'Incorrect username or password. Please try again.';
     document.getElementById('login-password').value = '';
     document.getElementById('login-password').focus();
   }
@@ -724,6 +809,8 @@ function openModal(id) {
   }
 
   document.getElementById('order-modal').classList.add('open');
+  document.getElementById('wo-dropdown').classList.remove('open');
+  document.getElementById('wo-help').textContent = '';
   setTimeout(() => document.getElementById('f-wo').focus(), 50);
 }
 
@@ -805,6 +892,95 @@ function esc(s) {
 // ══════════════════════════════════════════
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeModal();
+});
+
+// ══════════════════════════════════════════
+//  WO TYPEAHEAD (Print Order Details)
+// ══════════════════════════════════════════
+let _woTimer = null;
+let _woSeq   = 0;
+let _woRows  = [];
+
+async function runWoSearch(q) {
+  const seq  = ++_woSeq;
+  const drop = document.getElementById('wo-dropdown');
+  const help = document.getElementById('wo-help');
+  help.textContent = 'Searching…';
+  try {
+    const res  = await fetch(`${MOUNT}/api/print-orders/search?q=${encodeURIComponent(q)}`);
+    const json = await res.json();
+    if (seq !== _woSeq) return;
+    _woRows = json.items || [];
+    renderWoDrop(_woRows, q, json.ok !== false);
+  } catch (err) {
+    if (seq !== _woSeq) return;
+    drop.innerHTML = `<div class="wo-drop-row" style="cursor:default;color:#94a3b8;">Search failed: ${err.message}</div>`;
+    drop.classList.add('open');
+    help.textContent = 'Could not reach Print Order Details';
+  }
+}
+
+function renderWoDrop(rows, q, sourceOk) {
+  const drop = document.getElementById('wo-dropdown');
+  const help = document.getElementById('wo-help');
+  if (!drop) return;
+
+  if (!rows.length) {
+    drop.innerHTML = sourceOk
+      ? `<div class="wo-drop-row" style="cursor:default;color:#94a3b8;">${q ? `No matches for "${q}"` : 'No work orders found.'}</div>`
+      : `<div class="wo-drop-row" style="cursor:default;color:#94a3b8;">Print Order Details unavailable — type manually.</div>`;
+    drop.classList.add('open');
+    help.textContent = q ? '0 results' : '';
+    return;
+  }
+
+  help.textContent = `${rows.length} work order${rows.length === 1 ? '' : 's'} — click to auto-fill`;
+
+  drop.innerHTML = rows.map((r, i) => `
+    <div class="wo-drop-row" data-i="${i}">
+      <div class="wo-drop-top">
+        <span class="wo-drop-id">${r.wo_number}</span>
+        <span class="wo-drop-badge">🖨 Print Orders</span>
+      </div>
+      <div class="wo-drop-name">${r.title || '(no name)'}</div>
+      <div class="wo-drop-meta">${r.customer_name || ''}</div>
+    </div>
+  `).join('');
+
+  drop.querySelectorAll('.wo-drop-row[data-i]').forEach(row => {
+    row.addEventListener('mousedown', e => {
+      e.preventDefault();
+      const r = _woRows[parseInt(row.dataset.i, 10)];
+      if (!r) return;
+      document.getElementById('f-wo').value       = r.wo_number;
+      document.getElementById('f-material').value = r.title || '';
+      document.getElementById('f-customer').value = r.customer_name || '';
+      drop.classList.remove('open');
+      help.textContent = `✓ Auto-filled from Print Orders — edit if needed`;
+    });
+  });
+
+  drop.classList.add('open');
+}
+
+const _woInput = document.getElementById('f-wo');
+
+_woInput.addEventListener('input', function () {
+  clearTimeout(_woTimer);
+  const q = this.value.trim();
+  _woTimer = setTimeout(() => runWoSearch(q), q ? 200 : 50);
+});
+
+_woInput.addEventListener('focus', function () {
+  if (!this.value.trim()) runWoSearch('');
+  else if (_woRows.length) renderWoDrop(_woRows, this.value.trim(), true);
+});
+
+_woInput.addEventListener('blur', function () {
+  setTimeout(() => {
+    const drop = document.getElementById('wo-dropdown');
+    if (drop) drop.classList.remove('open');
+  }, 150);
 });
 
 checkLogin();
