@@ -408,6 +408,28 @@
     }
 
     .admin-link:hover { text-decoration: underline; }
+
+    .btn-admin-login {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(255,255,255,.13);
+      border: 1px solid rgba(255,255,255,.28);
+      color: #fff;
+      padding: 7px 16px;
+      border-radius: 7px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .02em;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background .15s;
+      white-space: nowrap;
+    }
+    .btn-admin-login:hover {
+      background: rgba(255,255,255,.24);
+      text-decoration: none;
+    }
   </style>
 </head>
 <body>
@@ -436,6 +458,7 @@
         <span class="lbl">Total</span>
       </div>
       <div class="clock-box" id="clock">--:--:--</div>
+      <a href="/urgency/admin" class="btn-admin-login">🔐 Admin Login</a>
     </div>
   </header>
 

@@ -461,12 +461,20 @@
   <div class="login-card">
     <div class="lock-icon">🔐</div>
     <h2>Admin Login</h2>
-    <p>Enter the admin password to manage urgent orders</p>
+    <p>Enter your username and password to manage urgent orders</p>
+
+    <div class="form-group">
+      <label>Username <span class="required">*</span></label>
+      <input type="text" id="login-username" placeholder="Enter username"
+             onkeydown="if(event.key==='Enter') document.getElementById('login-password').focus()"
+             autocomplete="username" />
+    </div>
 
     <div class="form-group">
       <label>Password <span class="required">*</span></label>
-      <input type="password" id="login-password" placeholder="Enter admin password"
-             onkeydown="if(event.key==='Enter') doLogin()" />
+      <input type="password" id="login-password" placeholder="Enter password"
+             onkeydown="if(event.key==='Enter') doLogin()"
+             autocomplete="current-password" />
     </div>
 
     <button class="btn-primary" onclick="doLogin()">Sign In</button>
@@ -590,9 +598,10 @@
 // ══════════════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════════════
-const MOUNT     = '/urgency';
-const API       = `${MOUNT}/api/urgent-orders`;
-const ADMIN_PWD = 'urgent@2024';   // Change this to your preferred password
+const MOUNT      = '/urgency';
+const API        = `${MOUNT}/api/urgent-orders`;
+const ADMIN_USER = 'sadanand';   // Admin username
+const ADMIN_PWD  = '9999';       // Admin password
 
 // ══════════════════════════════════════════
 //  AUTH
@@ -603,13 +612,14 @@ function checkLogin() {
 }
 
 function doLogin() {
-  const pwd = document.getElementById('login-password').value.trim();
-  if (pwd === ADMIN_PWD) {
+  const user = document.getElementById('login-username').value.trim();
+  const pwd  = document.getElementById('login-password').value.trim();
+  if (user === ADMIN_USER && pwd === ADMIN_PWD) {
     sessionStorage.setItem('admin_auth', 'yes');
     document.getElementById('login-error').textContent = '';
     showAdminPanel();
   } else {
-    document.getElementById('login-error').textContent = 'Incorrect password. Please try again.';
+    document.getElementById('login-error').textContent = 'Incorrect username or password. Please try again.';
     document.getElementById('login-password').value = '';
     document.getElementById('login-password').focus();
   }
