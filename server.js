@@ -163,6 +163,70 @@ router.get('/api/print-orders/search', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
+// Production Tracker proxy — live WO list
+// ─────────────────────────────────────────────
+// Fetches work orders from the production-tracker sub-app over the loopback
+// (Pattern A from the Integration Guide). Normalises title into WO No. +
+// Work Order Name, derives overall status from stage statuses, computes age.
+// Both apps run inside the same Node process on localhost, so this is <5 ms.
+
+router.get('/api/production-orders', async (_req, res) => {
+  try {
+    const base = _getEnv('PORTAL_INTERNAL_BASE') || 'http://localhost:3000';
+    const ctrl = new AbortController();
+    const t    = setTimeout(() => ctrl.abort(), 7000);
+
+    let raw;
+    try {
+      const resp = await fetch(`${base}/production/api/orders`, {
+        signal:  ctrl.signal,
+        headers: { 'Accept': 'application/json', 'x-internal-call': 'true' },
+      });
+      clearTimeout(t);
+      if (!resp.ok) throw new Error(`production-tracker → ${resp.status}`);
+      const ct = resp.headers.get('content-type') || '';
+      if (!ct.includes('application/json')) throw new Error('not JSON');
+      raw = await resp.json();
+    } finally { clearTimeout(t); }
+
+    const data = (Array.isArray(raw) ? raw : [])
+      .filter(o => !o.completedAt)                  // skip fully-completed WOs
+      .map(o => {
+        // Split "10836 - Zero defect hpt" → wo_no="10836", wo_name="Zero defect hpt"
+        const m       = String(o.title || '').match(/^\s*(\d+)\s*[-–—:]\s*(.*)/s);
+        const wo_no   = m ? m[1].trim() : '';
+        const wo_name = m ? m[2].trim() : (o.title || '');
+
+        // Derive overall status from all stage statuses
+        const stageStats = Object.values(o.stages || {}).map(s => (s.status || '').toLowerCase());
+        let overall = 'Pending';
+        if (stageStats.some(s => s === 'delayed'))       overall = 'Delayed';
+        else if (stageStats.some(s => s === 'in_progress')) overall = 'In Progress';
+
+        // Calendar days since WO creation
+        const age_days = o.createdAt
+          ? Math.max(0, Math.floor((Date.now() - new Date(o.createdAt)) / 86_400_000))
+          : null;
+
+        return {
+          id:       o.id,
+          wo_no,
+          wo_name,
+          customer: o.customer || '',
+          priority: o.priority || 'Medium',
+          overall,
+          age_days,
+        };
+      });
+
+    res.json({ ok: true, data });
+  } catch (err) {
+    console.error('[production-urgency-tracker] GET /api/production-orders', err);
+    res.json({ ok: false, data: [], message: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
 // Serve admin panel
 // ─────────────────────────────────────────────
 router.get('/admin', (_req, res) => {
