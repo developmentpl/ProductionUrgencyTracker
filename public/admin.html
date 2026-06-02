@@ -512,6 +512,53 @@
     #toast.show { opacity: 1; transform: translateY(0); }
     #toast.ok   { border-left: 4px solid #22c55e; }
     #toast.err  { border-left: 4px solid var(--danger); }
+
+    /* ── Checkbox column ── */
+    .col-check { width: 36px; text-align: center; }
+    .col-check input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--danger); }
+
+    /* ── Bulk delete bar ── */
+    #bulk-bar {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      background: #fff1f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 10px 16px;
+      margin-bottom: 12px;
+      animation: slideIn .15s ease;
+    }
+    @keyframes slideIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+    #bulk-bar.visible { display: flex; }
+    #bulk-count { font-size: 13px; font-weight: 700; color: var(--danger-text); }
+    .btn-bulk-delete {
+      background: var(--danger);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 7px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-bulk-delete:hover { background: #b91c1c; }
+    .btn-deselect {
+      background: none;
+      border: 1px solid #fca5a5;
+      color: var(--danger-text);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-deselect:hover { background: #fee2e2; }
+
+    tbody tr.row-selected td { background: #fff1f2 !important; }
   </style>
 </head>
 <body>
@@ -584,10 +631,18 @@
         <button class="btn-add" onclick="openModal()">＋ Add New Order</button>
       </div>
 
+      <!-- Bulk delete bar (shown when ≥1 row selected) -->
+      <div id="bulk-bar">
+        <span id="bulk-count">0 selected</span>
+        <button class="btn-bulk-delete" onclick="deleteSelected()">🗑️ Delete Selected</button>
+        <button class="btn-deselect" onclick="deselectAll()">✕ Deselect All</button>
+      </div>
+
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
+              <th class="col-check"><input type="checkbox" id="chk-all" title="Select all" onchange="toggleSelectAll(this.checked)" /></th>
               <th>#</th>
               <th>WO No.</th>
               <th>Work Order Name</th>
@@ -600,7 +655,7 @@
             </tr>
           </thead>
           <tbody id="orders-tbody">
-            <tr><td colspan="9" style="text-align:center;padding:24px;color:#94a3b8;">Loading…</td></tr>
+            <tr><td colspan="10" style="text-align:center;padding:24px;color:#94a3b8;">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -740,7 +795,9 @@ async function loadOrders() {
 function renderTable() {
   const tbody = document.getElementById('orders-tbody');
   if (!orders.length) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:32px;color:#94a3b8;">No urgent orders yet. Click "+ Add New Order" to get started.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:32px;color:#94a3b8;">No urgent orders yet. Click "+ Add New Order" to get started.</td></tr>`;
+    document.getElementById('chk-all').checked = false;
+    updateBulkBar();
     return;
   }
 
@@ -752,7 +809,8 @@ function renderTable() {
     const subStr = new Date(o.submitted_at).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', hour12:true });
 
     return `
-      <tr>
+      <tr id="row-${o.id}">
+        <td class="col-check"><input type="checkbox" class="row-chk" data-id="${o.id}" onchange="onRowCheck()" /></td>
         <td style="color:#94a3b8;font-size:11px">${i+1}</td>
         <td class="wo-id-cell">${esc(o.wo_number)}</td>
         <td>${esc(o.material||'—')}</td>
@@ -769,6 +827,10 @@ function renderTable() {
         </td>
       </tr>`;
   }).join('');
+
+  // Reset select-all checkbox after re-render
+  document.getElementById('chk-all').checked = false;
+  updateBulkBar();
 }
 
 // ══════════════════════════════════════════
@@ -849,6 +911,69 @@ async function saveOrder() {
   } catch(e) {
     toast('Error: ' + e.message, 'err');
   }
+}
+
+// ══════════════════════════════════════════
+//  MULTI-SELECT
+// ══════════════════════════════════════════
+function getCheckedIds() {
+  return [...document.querySelectorAll('.row-chk:checked')].map(c => parseInt(c.dataset.id, 10));
+}
+
+function onRowCheck() {
+  const all  = document.querySelectorAll('.row-chk');
+  const chkd = document.querySelectorAll('.row-chk:checked');
+  document.getElementById('chk-all').checked = all.length > 0 && chkd.length === all.length;
+  document.getElementById('chk-all').indeterminate = chkd.length > 0 && chkd.length < all.length;
+  // highlight selected rows
+  all.forEach(c => {
+    document.getElementById(`row-${c.dataset.id}`)?.classList.toggle('row-selected', c.checked);
+  });
+  updateBulkBar();
+}
+
+function toggleSelectAll(checked) {
+  document.querySelectorAll('.row-chk').forEach(c => {
+    c.checked = checked;
+    document.getElementById(`row-${c.dataset.id}`)?.classList.toggle('row-selected', checked);
+  });
+  document.getElementById('chk-all').indeterminate = false;
+  updateBulkBar();
+}
+
+function deselectAll() {
+  toggleSelectAll(false);
+  document.getElementById('chk-all').checked = false;
+}
+
+function updateBulkBar() {
+  const n   = getCheckedIds().length;
+  const bar = document.getElementById('bulk-bar');
+  document.getElementById('bulk-count').textContent = `${n} order${n === 1 ? '' : 's'} selected`;
+  bar.classList.toggle('visible', n > 0);
+}
+
+async function deleteSelected() {
+  const ids = getCheckedIds();
+  if (!ids.length) return;
+  const labels = ids.map(id => {
+    const o = orders.find(x => x.id === id);
+    return o ? o.wo_number : id;
+  });
+  if (!confirm(`Delete ${ids.length} order${ids.length > 1 ? 's' : ''}?\n\n${labels.join(', ')}\n\nThis will remove them from the TV dashboard immediately.`)) return;
+
+  let failed = 0;
+  await Promise.all(ids.map(async id => {
+    try {
+      const res  = await fetch(`${API}/${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!json.success) failed++;
+    } catch { failed++; }
+  }));
+
+  if (failed === 0) toast(`🗑️ ${ids.length} order${ids.length > 1 ? 's' : ''} deleted`, 'ok');
+  else              toast(`Deleted ${ids.length - failed}, failed ${failed}`, 'err');
+  loadOrders();
 }
 
 // ══════════════════════════════════════════
