@@ -204,7 +204,16 @@ router.get('/api/production-orders', async (_req, res) => {
     if (raw === undefined) throw lastErr || new Error('production-tracker unreachable');
 
     const data = (Array.isArray(raw) ? raw : [])
-      .filter(o => !o.completedAt)
+      .filter(o => {
+        // Exclude if completedAt is explicitly stamped
+        if (o.completedAt) return false;
+        // Also exclude if ALL stages are 'completed' — mirrors getOverallStatus()
+        // in the Production Tracker front-end. Many older WOs have completedAt=null
+        // because the auto-stamp was added after they were closed.
+        const stageStatuses = Object.values(o.stages || {}).map(s => (s.status || '').toLowerCase());
+        if (stageStatuses.length > 0 && stageStatuses.every(s => s === 'completed')) return false;
+        return true;
+      })
       .map(o => {
         const m       = String(o.title || '').match(/^\s*(\d+)\s*[-–—:]\s*(.*)/s);
         const wo_no   = m ? m[1].trim() : '';
