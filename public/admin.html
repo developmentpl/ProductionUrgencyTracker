@@ -520,6 +520,7 @@
 <header>
   <h1>⚙️ Urgent Orders — Admin Panel</h1>
   <div class="header-actions">
+    <a href="https://operation.yotser.in/" class="btn-tv">🏠 Portal</a>
     <a href="/urgency/" target="_blank" class="btn-tv">📺 Open TV Dashboard</a>
     <span class="admin-badge" id="admin-user-badge" style="display:none">ADMIN</span>
     <button class="logout-btn" id="logout-btn" style="display:none" onclick="logout()">Sign out</button>
@@ -971,7 +972,8 @@ _woInput.addEventListener('input', function () {
   _woTimer = setTimeout(() => runWoSearch(q), q ? 200 : 50);
 });
 
-_woInput.addEventListener('focus', function () {
+// Dropdown opens ONLY on explicit click — never on tab-focus or modal auto-focus
+_woInput.addEventListener('click', function () {
   if (!this.value.trim()) runWoSearch('');
   else if (_woRows.length) renderWoDrop(_woRows, this.value.trim(), true);
 });
