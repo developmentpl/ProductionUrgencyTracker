@@ -559,6 +559,45 @@
     .btn-deselect:hover { background: #fee2e2; }
 
     tbody tr.row-selected td { background: #fff1f2 !important; }
+
+    /* ── Tabs ── */
+    .tab-nav { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab-btn {
+      padding: 9px 20px; border: 1px solid #e2e8f0; background: #fff;
+      border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer;
+      color: #64748b; transition: all .15s;
+    }
+    .tab-btn:hover { border-color: #1e3a8a; color: #1e3a8a; }
+    .tab-btn.tab-active { background: #1e3a8a; color: #fff; border-color: #1e3a8a; }
+
+    /* ── History action pills ── */
+    .act-pill {
+      display: inline-block; padding: 2px 10px; border-radius: 10px;
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+    }
+    .act-add        { background: #d1fae5; color: #065f46; }
+    .act-edit       { background: #fef3c7; color: #92400e; }
+    .act-delete     { background: #fee2e2; color: #991b1b; }
+    .act-login      { background: #e0e7ff; color: #3730a3; }
+    .act-user       { background: #f3e8ff; color: #6b21a8; }
+
+    /* ── Users tab ── */
+    .user-add-row {
+      display: grid; grid-template-columns: 1fr 1fr 1fr 130px auto;
+      gap: 10px; align-items: end; margin-bottom: 18px;
+      padding: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
+    }
+    .user-add-row .form-group { margin: 0; }
+    .role-pill {
+      display: inline-block; padding: 2px 10px; border-radius: 10px;
+      font-size: 11px; font-weight: 700;
+    }
+    .role-admin { background: #1e3a8a; color: #fff; }
+    .role-user  { background: #e2e8f0; color: #334155; }
+    .status-active   { color: #059669; font-weight: 700; font-size: 12px; }
+    .status-inactive { color: #94a3b8; font-weight: 700; font-size: 12px; }
+    .by-cell { font-size: 12px; color: #64748b; }
+    @media (max-width: 900px) { .user-add-row { grid-template-columns: 1fr 1fr; } }
   </style>
 </head>
 <body>
@@ -569,7 +608,7 @@
   <div class="header-actions">
     <a href="https://operation.yotser.in/" class="btn-tv">🏠 Portal</a>
     <a href="/urgency/" target="_blank" class="btn-tv">📺 Open TV Dashboard</a>
-    <span class="admin-badge" id="admin-user-badge" style="display:none">ADMIN</span>
+    <span class="admin-badge" id="admin-user-badge" style="display:none">USER</span>
     <button class="logout-btn" id="logout-btn" style="display:none" onclick="logout()">Sign out</button>
   </div>
 </header>
@@ -578,7 +617,7 @@
 <div id="login-screen">
   <div class="login-card">
     <div class="lock-icon">🔐</div>
-    <h2>Admin Login</h2>
+    <h2>Team Sign In</h2>
     <p>Enter your username and password to manage urgent orders</p>
 
     <div class="form-group">
@@ -603,6 +642,16 @@
 <!-- ── ADMIN PANEL ── -->
 <div id="admin-panel">
   <div class="page-body">
+
+    <!-- Tab navigation -->
+    <div class="tab-nav">
+      <button class="tab-btn tab-active" id="tab-btn-orders"  onclick="switchTab('orders')">📋 Orders</button>
+      <button class="tab-btn"            id="tab-btn-history" onclick="switchTab('history')">🕘 History</button>
+      <button class="tab-btn"            id="tab-btn-users"   onclick="switchTab('users')" style="display:none">👥 Users</button>
+    </div>
+
+    <!-- ════ TAB: ORDERS ════ -->
+    <div id="tab-orders">
 
     <!-- Summary cards -->
     <div class="summary-row">
@@ -650,16 +699,97 @@
               <th>Priority</th>
               <th>Deadline</th>
               <th>Submitted</th>
+              <th>Added By</th>
               <th>Remarks</th>
               <th style="text-align:center;">Actions</th>
             </tr>
           </thead>
           <tbody id="orders-tbody">
-            <tr><td colspan="10" style="text-align:center;padding:24px;color:#94a3b8;">Loading…</td></tr>
+            <tr><td colspan="11" style="text-align:center;padding:24px;color:#94a3b8;">Loading…</td></tr>
           </tbody>
         </table>
       </div>
     </div>
+
+    </div><!-- /tab-orders -->
+
+    <!-- ════ TAB: HISTORY ════ -->
+    <div id="tab-history" style="display:none">
+      <div class="section-card">
+        <div class="section-header">
+          <h3>🕘 Activity History</h3>
+          <button class="btn-add" onclick="loadHistory()">↻ Refresh</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>User</th>
+                <th>Action</th>
+                <th>WO No.</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody">
+              <tr><td colspan="5" style="text-align:center;padding:24px;color:#94a3b8;">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /tab-history -->
+
+    <!-- ════ TAB: USERS (admin only) ════ -->
+    <div id="tab-users" style="display:none">
+      <div class="section-card">
+        <div class="section-header">
+          <h3>👥 Users</h3>
+        </div>
+
+        <!-- Add user inline form -->
+        <div class="user-add-row">
+          <div class="form-group">
+            <label>Username <span class="required">*</span></label>
+            <input type="text" id="u-username" placeholder="e.g. ramesh" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label>Display Name</label>
+            <input type="text" id="u-display" placeholder="e.g. Ramesh Kumar" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label>Password <span class="required">*</span></label>
+            <input type="text" id="u-password" placeholder="min 4 characters" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label>Role</label>
+            <select id="u-role">
+              <option value="user" selected>User</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <button class="btn-add" onclick="addUser()" style="height:38px;">＋ Add User</button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Username</th>
+                <th>Display Name</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th style="text-align:center;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody">
+              <tr><td colspan="7" style="text-align:center;padding:24px;color:#94a3b8;">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /tab-users -->
 
   </div>
 </div>
@@ -731,26 +861,59 @@
 // ══════════════════════════════════════════
 const MOUNT      = '/urgency';
 const API        = `${MOUNT}/api/urgent-orders`;
-const ADMIN_USER = 'sadanand';   // Admin username
-const ADMIN_PWD  = '9999';       // Admin password
 
 // ══════════════════════════════════════════
-//  AUTH
+//  AUTH — server-side sessions, multi-user
 // ══════════════════════════════════════════
-function checkLogin() {
-  const logged = sessionStorage.getItem('admin_auth') === 'yes';
-  if (logged) showAdminPanel();
+let TOKEN        = localStorage.getItem('urgency_token') || '';
+let CURRENT_USER = null;   // { username, display_name, role }
+
+// fetch wrapper that sends the auth token and kicks back to login on 401
+async function authFetch(url, opts = {}) {
+  opts.headers = Object.assign({}, opts.headers, { 'x-auth-token': TOKEN });
+  const res = await fetch(url, opts);
+  if (res.status === 401) {
+    forceLogout('Your session has expired. Please sign in again.');
+    throw new Error('Session expired');
+  }
+  return res;
 }
 
-function doLogin() {
+async function checkLogin() {
+  if (!TOKEN) return;
+  try {
+    const res  = await fetch(`${MOUNT}/api/me`, { headers: { 'x-auth-token': TOKEN } });
+    const json = await res.json();
+    if (json.success) {
+      CURRENT_USER = json.user;
+      showAdminPanel();
+    } else {
+      localStorage.removeItem('urgency_token');
+      TOKEN = '';
+    }
+  } catch { /* stay on login screen */ }
+}
+
+async function doLogin() {
   const user = document.getElementById('login-username').value.trim();
   const pwd  = document.getElementById('login-password').value.trim();
-  if (user === ADMIN_USER && pwd === ADMIN_PWD) {
-    sessionStorage.setItem('admin_auth', 'yes');
-    document.getElementById('login-error').textContent = '';
+  const errEl = document.getElementById('login-error');
+  if (!user || !pwd) { errEl.textContent = 'Please enter username and password.'; return; }
+  try {
+    const res  = await fetch(`${MOUNT}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: user, password: pwd })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Login failed');
+    TOKEN        = json.token;
+    CURRENT_USER = json.user;
+    localStorage.setItem('urgency_token', TOKEN);
+    errEl.textContent = '';
     showAdminPanel();
-  } else {
-    document.getElementById('login-error').textContent = 'Incorrect username or password. Please try again.';
+  } catch (e) {
+    errEl.textContent = e.message;
     document.getElementById('login-password').value = '';
     document.getElementById('login-password').focus();
   }
@@ -759,14 +922,178 @@ function doLogin() {
 function showAdminPanel() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('admin-panel').style.display  = 'block';
-  document.getElementById('admin-user-badge').style.display = 'inline-block';
+  const badge = document.getElementById('admin-user-badge');
+  badge.style.display = 'inline-block';
+  badge.textContent   = `${CURRENT_USER.display_name || CURRENT_USER.username}${CURRENT_USER.role === 'admin' ? ' · ADMIN' : ''}`;
   document.getElementById('logout-btn').style.display = 'inline-block';
+  if (CURRENT_USER.role === 'admin') {
+    document.getElementById('tab-btn-users').style.display = 'inline-block';
+  }
   loadOrders();
 }
 
-function logout() {
-  sessionStorage.removeItem('admin_auth');
+function forceLogout(msg) {
+  localStorage.removeItem('urgency_token');
+  TOKEN = '';
+  if (msg) alert(msg);
   location.reload();
+}
+
+async function logout() {
+  try { await fetch(`${MOUNT}/api/logout`, { method: 'POST', headers: { 'x-auth-token': TOKEN } }); } catch {}
+  forceLogout();
+}
+
+// ══════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════
+function switchTab(tab) {
+  ['orders', 'history', 'users'].forEach(t => {
+    document.getElementById(`tab-${t}`).style.display = (t === tab) ? 'block' : 'none';
+    document.getElementById(`tab-btn-${t}`).classList.toggle('tab-active', t === tab);
+  });
+  if (tab === 'history') loadHistory();
+  if (tab === 'users')   loadUsers();
+}
+
+// ══════════════════════════════════════════
+//  HISTORY TAB
+// ══════════════════════════════════════════
+function actPill(action) {
+  const cls = action === 'add' ? 'act-add'
+    : action === 'edit'   ? 'act-edit'
+    : action === 'delete' ? 'act-delete'
+    : action === 'login'  ? 'act-login'
+    : 'act-user';
+  return `<span class="act-pill ${cls}">${esc(action)}</span>`;
+}
+
+async function loadHistory() {
+  const tbody = document.getElementById('history-tbody');
+  try {
+    const res  = await authFetch(`${MOUNT}/api/activity-log?limit=300`);
+    const json = await res.json();
+    const rows = json.data || [];
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:32px;color:#94a3b8;">No activity yet.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rows.map(r => {
+      const t = new Date(r.created_at).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', hour12:true });
+      return `
+        <tr>
+          <td style="font-size:12px;color:#64748b;white-space:nowrap">${t}</td>
+          <td style="font-weight:600">${esc(r.username)}</td>
+          <td>${actPill(r.action)}</td>
+          <td class="wo-id-cell">${esc(r.wo_number || '—')}</td>
+          <td style="font-size:12px;color:#475569">${esc(r.details || '—')}</td>
+        </tr>`;
+    }).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:#dc2626;">Failed to load history: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+// ══════════════════════════════════════════
+//  USERS TAB (admin only)
+// ══════════════════════════════════════════
+let usersList = [];
+
+async function loadUsers() {
+  const tbody = document.getElementById('users-tbody');
+  try {
+    const res  = await authFetch(`${MOUNT}/api/users`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+    usersList = json.data || [];
+    tbody.innerHTML = usersList.map((u, i) => {
+      const created = new Date(u.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+      const isSelf  = CURRENT_USER && u.username === CURRENT_USER.username;
+      return `
+        <tr>
+          <td style="color:#94a3b8;font-size:11px">${i + 1}</td>
+          <td style="font-weight:700">${esc(u.username)}${isSelf ? ' <span style="color:#94a3b8;font-weight:400">(you)</span>' : ''}</td>
+          <td>${esc(u.display_name || '—')}</td>
+          <td><span class="role-pill role-${u.role}">${u.role.toUpperCase()}</span></td>
+          <td><span class="${u.is_active ? 'status-active' : 'status-inactive'}">${u.is_active ? '● Active' : '○ Inactive'}</span></td>
+          <td style="font-size:12px;color:#64748b">${created}</td>
+          <td>
+            <div class="actions-cell">
+              <button class="btn-edit" onclick="resetUserPassword(${u.id}, '${esc(u.username)}')">🔑 Reset Pwd</button>
+              ${isSelf ? '' : `
+                <button class="btn-edit" onclick="toggleUserActive(${u.id}, ${!u.is_active})">${u.is_active ? '⏸ Deactivate' : '▶️ Activate'}</button>
+                <button class="btn-delete" onclick="deleteUser(${u.id}, '${esc(u.username)}')">🗑️ Delete</button>`}
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:#dc2626;">Failed to load users: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+async function addUser() {
+  const username = document.getElementById('u-username').value.trim();
+  const display  = document.getElementById('u-display').value.trim();
+  const password = document.getElementById('u-password').value.trim();
+  const role     = document.getElementById('u-role').value;
+  if (!username || !password) { toast('Username and password are required', 'err'); return; }
+  try {
+    const res  = await authFetch(`${MOUNT}/api/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, display_name: display, password, role })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+    toast(`✅ User "${username}" added`, 'ok');
+    document.getElementById('u-username').value = '';
+    document.getElementById('u-display').value  = '';
+    document.getElementById('u-password').value = '';
+    document.getElementById('u-role').value     = 'user';
+    loadUsers();
+  } catch (e) { toast('Error: ' + e.message, 'err'); }
+}
+
+async function resetUserPassword(id, username) {
+  const pwd = prompt(`New password for "${username}" (min 4 characters):`);
+  if (pwd === null) return;
+  if (pwd.trim().length < 4) { toast('Password must be at least 4 characters', 'err'); return; }
+  try {
+    const res  = await authFetch(`${MOUNT}/api/users/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pwd.trim() })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+    toast(`🔑 Password reset for "${username}"`, 'ok');
+  } catch (e) { toast('Error: ' + e.message, 'err'); }
+}
+
+async function toggleUserActive(id, makeActive) {
+  try {
+    const res  = await authFetch(`${MOUNT}/api/users/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: makeActive })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+    toast(makeActive ? '▶️ User activated' : '⏸ User deactivated', 'ok');
+    loadUsers();
+  } catch (e) { toast('Error: ' + e.message, 'err'); }
+}
+
+async function deleteUser(id, username) {
+  if (!confirm(`Delete user "${username}"?\n\nTheir past activity stays in the history log.`)) return;
+  try {
+    const res  = await authFetch(`${MOUNT}/api/users/${id}`, { method: 'DELETE' });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+    toast(`🗑️ User "${username}" deleted`, 'ok');
+    loadUsers();
+  } catch (e) { toast('Error: ' + e.message, 'err'); }
 }
 
 // ══════════════════════════════════════════
@@ -795,7 +1122,7 @@ async function loadOrders() {
 function renderTable() {
   const tbody = document.getElementById('orders-tbody');
   if (!orders.length) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:32px;color:#94a3b8;">No urgent orders yet. Click "+ Add New Order" to get started.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:32px;color:#94a3b8;">No urgent orders yet. Click "+ Add New Order" to get started.</td></tr>`;
     document.getElementById('chk-all').checked = false;
     updateBulkBar();
     return;
@@ -818,6 +1145,7 @@ function renderTable() {
         <td><span class="pri-text pri-${priKey}">${esc(o.priority)}</span></td>
         <td class="deadline-cell ${overdue?'is-overdue':''}">${overdue?'⚠ ':''}${dlStr}</td>
         <td style="font-size:12px;color:#64748b">${subStr}</td>
+        <td class="by-cell" title="${o.updated_by && o.updated_by !== o.created_by ? 'Last edited by ' + esc(o.updated_by) : ''}">${esc(o.created_by || '—')}</td>
         <td class="remarks-cell" title="${esc(o.remarks||'')}">${esc(o.remarks||'—')}</td>
         <td>
           <div class="actions-cell">
@@ -898,7 +1226,7 @@ async function saveOrder() {
   const payload = { wo_number: wo, material, customer, priority, deadline: new Date(deadline).toISOString(), remarks };
 
   try {
-    const res = await fetch(id ? `${API}/${id}` : API, {
+    const res = await authFetch(id ? `${API}/${id}` : API, {
       method: id ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -965,7 +1293,7 @@ async function deleteSelected() {
   let failed = 0;
   await Promise.all(ids.map(async id => {
     try {
-      const res  = await fetch(`${API}/${id}`, { method: 'DELETE' });
+      const res  = await authFetch(`${API}/${id}`, { method: 'DELETE' });
       const json = await res.json();
       if (!json.success) failed++;
     } catch { failed++; }
@@ -982,7 +1310,7 @@ async function deleteSelected() {
 async function deleteOrder(id, woNum) {
   if (!confirm(`Delete urgent order ${woNum}?\n\nThis will remove it from the TV dashboard immediately.`)) return;
   try {
-    const res  = await fetch(`${API}/${id}`, { method: 'DELETE' });
+    const res  = await authFetch(`${API}/${id}`, { method: 'DELETE' });
     const json = await res.json();
     if (!json.success) throw new Error(json.error);
     toast(`🗑️ ${woNum} removed`, 'ok');
