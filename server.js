@@ -298,6 +298,31 @@ router.put('/api/urgent-orders/:id', requireAuth, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
+// COMPLETE — mark an urgent order as done
+// ─────────────────────────────────────────────
+router.post('/api/urgent-orders/:id/complete', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const by = req.user.display_name || req.user.username;
+    const result = await db.query(
+      `UPDATE urgent_orders SET is_done = TRUE, updated_by = $1, updated_at = NOW()
+       WHERE id = $2 RETURNING *`,
+      [by, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+    const o = result.rows[0];
+    logActivity(req.user.username, 'complete', o.id, o.wo_number,
+      `Completed ${o.wo_number} — ${o.material} for ${o.customer}`);
+    res.json({ success: true, data: o });
+  } catch (err) {
+    console.error('[production-urgency-tracker] POST /api/urgent-orders/:id/complete', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
 // DELETE — remove an urgent order
 // ─────────────────────────────────────────────
 router.delete('/api/urgent-orders/:id', requireAuth, async (req, res) => {
