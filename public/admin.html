@@ -319,6 +319,23 @@
       font-size: 12px; font-weight: 600; cursor: pointer;
     }
 
+    .btn-complete {
+      background: #d1fae5; color: #065f46;
+      border: 1px solid #a7f3d0;
+      padding: 5px 10px; border-radius: 6px;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .btn-complete:hover { background: #a7f3d0; }
+
+    .btn-bulk-complete {
+      background: #059669; color: #fff;
+      border: none; border-radius: 6px;
+      padding: 7px 16px; font-size: 13px;
+      font-weight: 600; cursor: pointer;
+    }
+    .btn-bulk-complete:hover { background: #047857; }
+    .act-complete { background: #d1fae5; color: #065f46; }
+
     .btn-edit:hover { background: #dbeafe; }
 
     .btn-delete {
@@ -683,6 +700,7 @@
       <!-- Bulk delete bar (shown when ≥1 row selected) -->
       <div id="bulk-bar">
         <span id="bulk-count">0 selected</span>
+        <button class="btn-bulk-complete" onclick="completeSelected()">✅ Complete Selected</button>
         <button class="btn-bulk-delete" onclick="deleteSelected()">🗑️ Delete Selected</button>
         <button class="btn-deselect" onclick="deselectAll()">✕ Deselect All</button>
       </div>
@@ -961,9 +979,10 @@ function switchTab(tab) {
 // ══════════════════════════════════════════
 function actPill(action) {
   const cls = action === 'add' ? 'act-add'
-    : action === 'edit'   ? 'act-edit'
-    : action === 'delete' ? 'act-delete'
-    : action === 'login'  ? 'act-login'
+    : action === 'edit'     ? 'act-edit'
+    : action === 'delete'   ? 'act-delete'
+    : action === 'complete' ? 'act-complete'
+    : action === 'login'    ? 'act-login'
     : 'act-user';
   return `<span class="act-pill ${cls}">${esc(action)}</span>`;
 }
@@ -1149,6 +1168,7 @@ function renderTable() {
         <td class="remarks-cell" title="${esc(o.remarks||'')}">${esc(o.remarks||'—')}</td>
         <td>
           <div class="actions-cell">
+            <button class="btn-complete" onclick="completeOrder(${o.id}, '${esc(o.wo_number)}')">✅ Complete</button>
             <button class="btn-edit" onclick="openModal(${o.id})">✏️ Edit</button>
             <button class="btn-delete" onclick="deleteOrder(${o.id}, '${esc(o.wo_number)}')">🗑️ Delete</button>
           </div>
@@ -1301,6 +1321,45 @@ async function deleteSelected() {
 
   if (failed === 0) toast(`🗑️ ${ids.length} order${ids.length > 1 ? 's' : ''} deleted`, 'ok');
   else              toast(`Deleted ${ids.length - failed}, failed ${failed}`, 'err');
+  loadOrders();
+}
+
+// ══════════════════════════════════════════
+//  COMPLETE
+// ══════════════════════════════════════════
+async function completeOrder(id, woNum) {
+  if (!confirm(`Mark ${woNum} as completed?\n\nIt will be removed from the TV dashboard and this list. The history log keeps a record.`)) return;
+  try {
+    const res  = await authFetch(`${API}/${id}/complete`, { method: 'POST' });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+    toast(`✅ ${woNum} marked completed`, 'ok');
+    loadOrders();
+  } catch(e) {
+    toast('Complete failed: ' + e.message, 'err');
+  }
+}
+
+async function completeSelected() {
+  const ids = getCheckedIds();
+  if (!ids.length) return;
+  const labels = ids.map(id => {
+    const o = orders.find(x => x.id === id);
+    return o ? o.wo_number : id;
+  });
+  if (!confirm(`Mark ${ids.length} order${ids.length > 1 ? 's' : ''} as completed?\n\n${labels.join(', ')}\n\nThey will be removed from the TV dashboard immediately.`)) return;
+
+  let failed = 0;
+  await Promise.all(ids.map(async id => {
+    try {
+      const res  = await authFetch(`${API}/${id}/complete`, { method: 'POST' });
+      const json = await res.json();
+      if (!json.success) failed++;
+    } catch { failed++; }
+  }));
+
+  if (failed === 0) toast(`✅ ${ids.length} order${ids.length > 1 ? 's' : ''} completed`, 'ok');
+  else              toast(`Completed ${ids.length - failed}, failed ${failed}`, 'err');
   loadOrders();
 }
 
