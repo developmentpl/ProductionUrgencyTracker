@@ -207,7 +207,20 @@
       border-radius: 50%;
       background: var(--border);
       transition: background .4s, transform .4s;
-      cursor: default;
+      cursor: pointer;
+      /* Larger invisible tap target for TV remotes / touchscreens */
+      position: relative;
+    }
+
+    .dot::after {
+      content: '';
+      position: absolute;
+      inset: -8px;
+    }
+
+    .dot:hover:not(.dot-active) {
+      background: var(--brand-navy);
+      opacity: .45;
     }
 
     .dot.dot-active {
@@ -807,6 +820,13 @@ function updatePageUI() {
   document.getElementById('header-title').textContent  = HEADER_TITLES[currentPage];
   updateStats();
 }
+
+// Clicking a dot switches to that page immediately
+document.querySelectorAll('.dot').forEach((d, i) => {
+  d.addEventListener('click', () => {
+    if (i !== currentPage && !isSliding) slideTo(i);
+  });
+});
 
 // ═══════════════════════════════════════════════════════════════
 //  PAGE SLIDE (right-to-left carousel)
