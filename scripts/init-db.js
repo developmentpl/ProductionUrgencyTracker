@@ -1,6 +1,28 @@
-const fs   = require('fs');
-const path = require('path');
-const db   = require('../db');
+const fs     = require('fs');
+const path   = require('path');
+const crypto = require('crypto');
+const db     = require('../db');
+
+function hashPassword(pw) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(String(pw), salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+
+async function seedUsers() {
+  const { rows } = await db.query('SELECT COUNT(*)::int AS n FROM users');
+  if (rows[0].n === 0) {
+    console.log('Seeding admin user (sadanand)...');
+    await db.query(
+      `INSERT INTO users (username, display_name, password_hash, role)
+       VALUES ($1, $2, $3, 'admin')`,
+      ['sadanand', 'Sadanand', hashPassword('9999')]
+    );
+    console.log('Admin user created — username "sadanand", password "9999". CHANGE THE PASSWORD after first login.');
+  } else {
+    console.log(`Skipping user seed — users table already has ${rows[0].n} rows.`);
+  }
+}
 
 async function main() {
   // Apply schema
@@ -36,6 +58,8 @@ async function main() {
   } else {
     console.log(`Skipping seed — table already has ${rows[0].n} rows.`);
   }
+
+  await seedUsers();
 
   console.log('Done.');
   process.exit(0);
