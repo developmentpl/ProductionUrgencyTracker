@@ -482,8 +482,8 @@
       text-transform: uppercase;
       padding: 2px 6px;
       border-radius: 4px;
-      background: #f5f3ff;
-      color: #6d28d9;
+      background: #ecfdf5;
+      color: #065f46;
     }
     .wo-drop-name {
       font-size: 13px;
@@ -1408,7 +1408,7 @@ document.addEventListener('keydown', e => {
 });
 
 // ══════════════════════════════════════════
-//  WO TYPEAHEAD (Print Order Details)
+//  WO TYPEAHEAD (Projects Table)
 // ══════════════════════════════════════════
 let _woTimer = null;
 let _woSeq   = 0;
@@ -1418,22 +1418,22 @@ async function runWoSearch(q) {
   const seq  = ++_woSeq;
   const drop = document.getElementById('wo-dropdown');
   const help = document.getElementById('wo-help');
-  help.textContent = 'Searching…';
+  help.textContent = q ? 'Searching…' : 'Loading latest work orders…';
   try {
-    const res  = await fetch(`${MOUNT}/api/print-orders/search?q=${encodeURIComponent(q)}`);
+    const res  = await fetch(`${MOUNT}/api/projects/search?q=${encodeURIComponent(q)}&limit=50`);
     const json = await res.json();
     if (seq !== _woSeq) return;
-    _woRows = json.items || [];
-    renderWoDrop(_woRows, q, json.ok !== false);
+    _woRows = json.projects || [];
+    renderWoDrop(_woRows, q, json.ok !== false, json.total || _woRows.length);
   } catch (err) {
     if (seq !== _woSeq) return;
     drop.innerHTML = `<div class="wo-drop-row" style="cursor:default;color:#94a3b8;">Search failed: ${err.message}</div>`;
     drop.classList.add('open');
-    help.textContent = 'Could not reach Print Order Details';
+    help.textContent = 'Could not reach Projects Table';
   }
 }
 
-function renderWoDrop(rows, q, sourceOk) {
+function renderWoDrop(rows, q, sourceOk, total) {
   const drop = document.getElementById('wo-dropdown');
   const help = document.getElementById('wo-help');
   if (!drop) return;
@@ -1441,22 +1441,31 @@ function renderWoDrop(rows, q, sourceOk) {
   if (!rows.length) {
     drop.innerHTML = sourceOk
       ? `<div class="wo-drop-row" style="cursor:default;color:#94a3b8;">${q ? `No matches for "${q}"` : 'No work orders found.'}</div>`
-      : `<div class="wo-drop-row" style="cursor:default;color:#94a3b8;">Print Order Details unavailable — type manually.</div>`;
+      : `<div class="wo-drop-row" style="cursor:default;color:#94a3b8;">Projects Table unavailable — type manually.</div>`;
     drop.classList.add('open');
     help.textContent = q ? '0 results' : '';
     return;
   }
 
-  help.textContent = `${rows.length} work order${rows.length === 1 ? '' : 's'} — click to auto-fill`;
+  // Help text: "Showing top N of M" or "N matches"
+  if (!q) {
+    help.textContent = total > rows.length
+      ? `Showing latest ${rows.length} of ${total} work orders — type to search all`
+      : `${rows.length} work order${rows.length === 1 ? '' : 's'} — click to auto-fill`;
+  } else {
+    help.textContent = total > rows.length
+      ? `Showing top ${rows.length} of ${total} matches — type more to narrow down`
+      : `${rows.length} match${rows.length === 1 ? '' : 'es'} — click to auto-fill`;
+  }
 
   drop.innerHTML = rows.map((r, i) => `
     <div class="wo-drop-row" data-i="${i}">
       <div class="wo-drop-top">
-        <span class="wo-drop-id">${r.wo_number}</span>
-        <span class="wo-drop-badge">🖨 Print Orders</span>
+        <span class="wo-drop-id">${esc(r.id)}</span>
+        ${r.status ? `<span class="wo-drop-badge">📋 ${esc(r.status)}</span>` : '<span class="wo-drop-badge">📋 Projects</span>'}
       </div>
-      <div class="wo-drop-name">${r.title || '(no name)'}</div>
-      <div class="wo-drop-meta">${r.customer_name || ''}</div>
+      <div class="wo-drop-name">${esc(r.name || '(no name)')}</div>
+      <div class="wo-drop-meta">${esc(r.customer || '')}</div>
     </div>
   `).join('');
 
@@ -1465,11 +1474,11 @@ function renderWoDrop(rows, q, sourceOk) {
       e.preventDefault();
       const r = _woRows[parseInt(row.dataset.i, 10)];
       if (!r) return;
-      document.getElementById('f-wo').value       = r.wo_number;
-      document.getElementById('f-material').value = r.title || '';
-      document.getElementById('f-customer').value = r.customer_name || '';
+      document.getElementById('f-wo').value       = r.id;
+      document.getElementById('f-material').value = r.name     || '';
+      document.getElementById('f-customer').value = r.customer || '';
       drop.classList.remove('open');
-      help.textContent = `✓ Auto-filled from Print Orders — edit if needed`;
+      help.textContent = `✓ Auto-filled from Projects Table — edit if needed`;
     });
   });
 
@@ -1487,7 +1496,7 @@ _woInput.addEventListener('input', function () {
 // Dropdown opens ONLY on explicit click — never on tab-focus or modal auto-focus
 _woInput.addEventListener('click', function () {
   if (!this.value.trim()) runWoSearch('');
-  else if (_woRows.length) renderWoDrop(_woRows, this.value.trim(), true);
+  else if (_woRows.length) renderWoDrop(_woRows, this.value.trim(), true, _woRows.length);
 });
 
 _woInput.addEventListener('blur', function () {

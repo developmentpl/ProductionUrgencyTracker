@@ -3,29 +3,16 @@ const path    = require('path');
 const fs      = require('fs');
 const crypto  = require('crypto');
 const dotenv  = require('dotenv');
-const { Pool }= require('pg');
 const db      = require('./db');
 
 const router = express.Router();
 
-// ── Print-Order Details DB pool (read-only, for WO typeahead) ─────────────────
-// Derive the print_order_details URL from this app's own DATABASE_URL by
-// swapping the DB name. Both DBs use fivesuser on the same Postgres instance.
+// ── Env helper ────────────────────────────────────────────────────────────────
 const _localEnv = (() => {
   const p = path.join(__dirname, '.env');
   return fs.existsSync(p) ? dotenv.parse(fs.readFileSync(p)) : {};
 })();
 const _getEnv = (k) => (_localEnv[k] !== undefined ? _localEnv[k] : process.env[k]);
-
-let _printOrderPool = null;
-function getPrintOrderPool() {
-  if (_printOrderPool) return _printOrderPool;
-  const base = _getEnv('DATABASE_URL') || '';
-  const url  = base.replace(/\/[^/?]+(\?.*)?$/, '/print_order_details$1');
-  if (!url) return null;
-  _printOrderPool = new Pool({ connectionString: url });
-  return _printOrderPool;
-}
 
 // Body parsing
 router.use(express.json());
@@ -342,45 +329,74 @@ router.delete('/api/urgent-orders/:id', requireAuth, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-// Print-Order search — WO typeahead in Add form
+// Projects search — WO typeahead in Add form
+// Proxies to the projects-table sub-app over the loopback.
+// Tries port 3000 then 3010 so the same code works on both VPS deployments.
+// Override with PROJECTS_API_URL in .env if needed.
 // ─────────────────────────────────────────────
-router.get('/api/print-orders/search', async (req, res) => {
-  try {
-    const pool = getPrintOrderPool();
-    if (!pool) return res.json({ ok: false, items: [], message: 'Print Order DB not configured.' });
+const PROJECTS_API_CANDIDATES = (() => {
+  const explicit = _getEnv('PROJECTS_API_URL');
+  if (explicit) return [explicit];
+  return [
+    'http://localhost:3000/projects/api/work-orders',
+    'http://localhost:3010/projects/api/work-orders',
+  ];
+})();
 
-    const q = (req.query.q || '').trim();
-    let rows;
-    if (q) {
-      ({ rows } = await pool.query(
-        `SELECT DISTINCT ON (wo_no)
-           wo_no, wo_name, company_name
-         FROM print_details
-         WHERE wo_no IS NOT NULL
-           AND (CAST(wo_no AS TEXT) ILIKE $1 OR wo_name ILIKE $1 OR company_name ILIKE $1)
-         ORDER BY wo_no DESC, added_time DESC NULLS LAST
-         LIMIT 60`,
-        [`%${q}%`]
-      ));
-    } else {
-      ({ rows } = await pool.query(
-        `SELECT DISTINCT ON (wo_no) wo_no, wo_name, company_name
-         FROM print_details
-         WHERE wo_no IS NOT NULL
-         ORDER BY wo_no DESC, added_time DESC NULLS LAST
-         LIMIT 60`
-      ));
+async function fetchProjectsUpstream(q, limit) {
+  const params = new URLSearchParams();
+  if (q) params.set('search', q);
+  params.set('limit', String(limit));
+  params.set('page', '1');
+
+  for (const base of PROJECTS_API_CANDIDATES) {
+    try {
+      const ctrl = new AbortController();
+      const t    = setTimeout(() => ctrl.abort(), 6000);
+      const resp = await fetch(`${base}?${params}`, {
+        signal: ctrl.signal,
+        headers: { 'Accept': 'application/json' },
+      });
+      clearTimeout(t);
+      if (!resp.ok) continue;
+      const ct = resp.headers.get('content-type') || '';
+      if (!ct.includes('application/json')) continue;
+
+      const json = await resp.json();
+      const list  = Array.isArray(json.data) ? json.data
+                  : Array.isArray(json)       ? json
+                  : [];
+      const total = (json.pagination && Number(json.pagination.total)) || list.length;
+
+      const projects = list
+        .map(r => ({
+          id:       r.work_order_no != null ? String(r.work_order_no) : '',
+          name:     r.wo_name       || '',
+          customer: r.company_name  || '',
+          status:   r.wo_status     || '',
+        }))
+        .filter(r => r.id && r.id.trim());
+
+      return { ok: true, projects, total };
+    } catch {
+      // try next candidate
     }
+  }
+  return null;
+}
 
-    const items = rows.map(r => ({
-      wo_number:     String(r.wo_no),
-      title:         r.wo_name      || '',
-      customer_name: r.company_name || '',
-    }));
-    res.json({ ok: true, items });
+router.get('/api/projects/search', async (req, res) => {
+  try {
+    const q     = (req.query.q || '').toString().trim();
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+    const data  = await fetchProjectsUpstream(q, limit);
+    if (data === null) {
+      return res.json({ ok: false, projects: [], total: 0, message: 'Projects app did not respond.' });
+    }
+    res.json(data);
   } catch (err) {
-    console.error('[production-urgency-tracker] GET /api/print-orders/search', err);
-    res.json({ ok: false, items: [], message: err.message });
+    console.error('[production-urgency-tracker] GET /api/projects/search', err);
+    res.json({ ok: false, projects: [], total: 0, message: err.message });
   }
 });
 
