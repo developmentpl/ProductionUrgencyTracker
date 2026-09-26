@@ -32,7 +32,7 @@ STEP 5 — Start the server (local-dev wrapper)
 
 STEP 6 — Open in a browser / TV
     Dashboard: http://localhost:3001/urgency/
-    Admin:     http://localhost:3001/urgency/admin
+    Admin:     http://localhost:3001/urgency/admin  (sign-in is the portal's: editing works only where portal-auth is mounted, e.g. the VPS)
     Health:    http://localhost:3001/urgency/api/health
 
 ----------------------------------------------------

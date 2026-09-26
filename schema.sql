@@ -32,26 +32,9 @@ CREATE TRIGGER trg_urgent_orders_updated_at
   BEFORE UPDATE ON urgent_orders
   FOR EACH ROW EXECUTE FUNCTION urgent_orders_set_updated_at();
 
--- ── Multi-user auth ──────────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS users (
-  id            SERIAL PRIMARY KEY,
-  username      TEXT NOT NULL UNIQUE,
-  display_name  TEXT NOT NULL DEFAULT '',
-  password_hash TEXT NOT NULL,           -- scrypt "salt:hash"
-  role          VARCHAR(10) NOT NULL DEFAULT 'user',  -- 'admin' | 'user'
-  is_active     BOOLEAN NOT NULL DEFAULT TRUE,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS sessions (
-  token      TEXT PRIMARY KEY,
-  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  expires_at TIMESTAMPTZ NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions (expires_at);
+-- Sign-in is the portal's (portal-auth). The users and sessions tables this
+-- app once kept for its own login are no longer read; existing databases may
+-- still carry them, and they can be dropped once nobody needs the history.
 
 -- ── Activity log: who did what, when ─────────────────────────────
 
